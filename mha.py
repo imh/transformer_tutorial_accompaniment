@@ -17,7 +17,6 @@ Explicit differences from nn.MultiheadAttention:
 - unnecessary fast path logic is removed
 """
 
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -37,6 +36,7 @@ class MultiHeadAttention(nn.Module):
         dropout (float, optional): Dropout probability. Default: 0.0
         bias (bool, optional): Whether to add bias to input projection. Default: True
     """
+
     def __init__(
         self,
         E_q: int,
@@ -55,18 +55,25 @@ class MultiHeadAttention(nn.Module):
         self.dropout = dropout
         self._qkv_same_embed_dim = E_q == E_k and E_q == E_v
         if self._qkv_same_embed_dim:
-          self.packed_proj = nn.Linear(E_q, E_total * 3, bias=bias, **factory_kwargs)
+            self.packed_proj = nn.Linear(E_q, E_total * 3, bias=bias, **factory_kwargs)
         else:
-          self.q_proj = nn.Linear(E_q, E_total, bias=bias, **factory_kwargs)
-          self.k_proj = nn.Linear(E_k, E_total, bias=bias, **factory_kwargs)
-          self.v_proj = nn.Linear(E_v, E_total, bias=bias, **factory_kwargs)
+            self.q_proj = nn.Linear(E_q, E_total, bias=bias, **factory_kwargs)
+            self.k_proj = nn.Linear(E_k, E_total, bias=bias, **factory_kwargs)
+            self.v_proj = nn.Linear(E_v, E_total, bias=bias, **factory_kwargs)
         E_out = E_q
         self.out_proj = nn.Linear(E_total, E_out, bias=bias, **factory_kwargs)
         assert E_total % nheads == 0, "Embedding dim is not divisible by nheads"
         self.E_head = E_total // nheads
         self.bias = bias
 
-    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, attn_mask=None, is_causal=False) -> torch.Tensor:
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attn_mask=None,
+        is_causal=False,
+    ) -> torch.Tensor:
         """
         Forward pass; runs the following process:
             1. Apply input projection
@@ -90,12 +97,20 @@ class MultiHeadAttention(nn.Module):
                 result = self.packed_proj(query)
                 query, key, value = torch.chunk(result, 3, dim=-1)
             else:
-                q_weight, k_weight, v_weight = torch.chunk(self.packed_proj.weight, 3, dim=0)
+                q_weight, k_weight, v_weight = torch.chunk(
+                    self.packed_proj.weight, 3, dim=0
+                )
                 if self.bias:
-                    q_bias, k_bias, v_bias = torch.chunk(self.packed_proj.bias, 3, dim=0)
+                    q_bias, k_bias, v_bias = torch.chunk(
+                        self.packed_proj.bias, 3, dim=0
+                    )
                 else:
                     q_bias, k_bias, v_bias = None, None, None
-                query, key, value = F.linear(query, q_weight, q_bias), F.linear(key, k_weight, k_bias), F.linear(value, v_weight, v_bias)
+                query, key, value = (
+                    F.linear(query, q_weight, q_bias),
+                    F.linear(key, k_weight, k_bias),
+                    F.linear(value, v_weight, v_bias),
+                )
 
         else:
             query = self.q_proj(query)
@@ -114,7 +129,8 @@ class MultiHeadAttention(nn.Module):
         # Step 3. Run SDPA
         # (N, nheads, L_t, E_head)
         attn_output = F.scaled_dot_product_attention(
-            query, key, value, dropout_p=self.dropout, is_causal=is_causal)
+            query, key, value, dropout_p=self.dropout, is_causal=is_causal
+        )
         # (N, nheads, L_t, E_head) -> (N, L_t, nheads, E_head) -> (N, L_t, E_total)
         attn_output = attn_output.transpose(1, 2).flatten(-2)
 

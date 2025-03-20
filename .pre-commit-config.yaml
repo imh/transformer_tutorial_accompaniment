@@ -1,0 +1,57 @@
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0  # Use the ref you want to point at
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-toml
+      - id: debug-statements
+      - id: check-ast
+
+  # Format with black
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--safe]
+        # This ensures black can modify files and add them back to staging
+        stages: [pre-commit]
+
+  # Sort imports
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.0
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ["--profile", "black"]
+
+#  # Lint with ruff
+#  - repo: https://github.com/astral-sh/ruff-pre-commit
+#    rev: v0.9.7
+#    hooks:
+#      - id: ruff
+#        args: [--fix, --exit-non-zero-on-fix]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        exclude: ^tests/
+
+  # Security scanner
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        exclude: package-lock.json
+
+# For handling the "run twice" auto-formatting issue
+ci:
+  autofix_commit_msg: 'style: auto fixes from pre-commit hooks'
+  autoupdate_commit_msg: 'ci: pre-commit autoupdate'
+  autofix_prs: true

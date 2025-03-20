@@ -9,10 +9,13 @@ Explicit differences from nn.TransformerEncoderLayer:
 - unnecessary fast path logic is removed
 """
 
+from typing import Literal, Optional
+
 import torch
 import torch.nn as nn
-from mha import MultiHeadAttention
-from typing import Optional
+
+from .mha import MultiHeadAttention
+
 
 class TransformerEncoderLayer(nn.Module):
     def __init__(
@@ -21,13 +24,16 @@ class TransformerEncoderLayer(nn.Module):
         nhead,
         dim_feedforward=2048,
         dropout=0.1,
-        activation : nn.Module = torch.nn.functional.relu,
+        activation: nn.Module = torch.nn.functional.relu,
         layer_norm_eps=1e-5,
+        batch_first: Literal[True] = True,
         norm_first=True,
         bias=True,
         device=None,
         dtype=None,
     ):
+        if not batch_first:
+            raise TypeError("batch_first can only be True")
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.self_attn = MultiHeadAttention(
@@ -45,13 +51,16 @@ class TransformerEncoderLayer(nn.Module):
         self.linear2 = nn.Linear(dim_feedforward, d_model, bias=bias, **factory_kwargs)
 
         self.norm_first = norm_first
-        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
-        self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
+        self.norm1 = nn.LayerNorm(
+            d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs
+        )
+        self.norm2 = nn.LayerNorm(
+            d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs
+        )
 
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         self.activation = activation
-        
 
     def _sa_block(self, x, attn_mask, is_causal):
         x = self.self_attn(x, x, x, is_causal=is_causal)
@@ -62,12 +71,12 @@ class TransformerEncoderLayer(nn.Module):
         return self.dropout2(x)
 
     def forward(self, src, src_mask=None, is_causal=False):
-        '''
+        """
         Arguments:
             src: (batch_size, seq_len, d_model)
             src_mask: (batch_size, seq_len, seq_len)
             is_causal: bool
-        '''
+        """
         x = src
         if self.norm_first:
             x = x + self._sa_block(self.norm1(x), src_mask, is_causal)

@@ -8,14 +8,13 @@ Explicit differences from nn.TransformerEncoderLayer:
   first dimension
 """
 
+from typing import Literal, Optional
 
 import torch
 import torch.nn as nn
-
-from mha import MultiHeadAttention
-
 from torch import Tensor
-from typing import Optional
+
+from .mha import MultiHeadAttention
 
 
 class TransformerDecoderLayer(nn.Module):
@@ -25,13 +24,16 @@ class TransformerDecoderLayer(nn.Module):
         nhead,
         dim_feedforward=2048,
         dropout=0.1,
-        activation : nn.Module = torch.nn.functional.relu,
+        activation: nn.Module = torch.nn.functional.relu,
         layer_norm_eps=1e-5,
-        norm_first = False,
+        batch_first: Literal[True] = True,
+        norm_first=False,
         bias=True,
         device=None,
         dtype=None,
     ):
+        if not batch_first:
+            raise TypeError("batch_first can only be True")
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.self_attn = MultiHeadAttention(
@@ -60,15 +62,21 @@ class TransformerDecoderLayer(nn.Module):
         self.linear2 = nn.Linear(dim_feedforward, d_model, bias=bias, **factory_kwargs)
 
         self.norm_first = norm_first
-        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
-        self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
-        self.norm3 = nn.LayerNorm(d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs)
+        self.norm1 = nn.LayerNorm(
+            d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs
+        )
+        self.norm2 = nn.LayerNorm(
+            d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs
+        )
+        self.norm3 = nn.LayerNorm(
+            d_model, eps=layer_norm_eps, bias=bias, **factory_kwargs
+        )
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
-    
+
         self.activation = activation
-    
+
     # self-attention block
     def _sa_block(
         self,
@@ -118,9 +126,7 @@ class TransformerDecoderLayer(nn.Module):
     ):
         x = tgt
         if self.norm_first:
-            x = x + self._sa_block(
-                self.norm1(x), tgt_mask, tgt_is_causal
-            )
+            x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_is_causal)
             x = x + self._mha_block(
                 self.norm2(x),
                 memory,
@@ -129,14 +135,9 @@ class TransformerDecoderLayer(nn.Module):
             )
             x = x + self._ff_block(self.norm3(x))
         else:
-            x = self.norm1(
-                x + self._sa_block(x, tgt_mask, tgt_is_causal)
-            )
+            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_is_causal))
             x = self.norm2(
-                x
-                + self._mha_block(
-                    x, memory, memory_mask, memory_is_causal
-                )
+                x + self._mha_block(x, memory, memory_mask, memory_is_causal)
             )
             x = self.norm3(x + self._ff_block(x))
 
