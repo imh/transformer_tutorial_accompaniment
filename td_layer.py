@@ -31,6 +31,7 @@ class TransformerDecoderLayer(nn.Module):
         bias=True,
         device=None,
         dtype=None,
+        force_split_qkv: bool=False
     ):
         if not batch_first:
             raise TypeError("batch_first can only be True")
@@ -44,6 +45,7 @@ class TransformerDecoderLayer(nn.Module):
             nhead,
             dropout=dropout,
             bias=bias,
+            force_split_qkv=force_split_qkv,
             **factory_kwargs,
         )
         self.multihead_attn = MultiHeadAttention(
@@ -54,6 +56,7 @@ class TransformerDecoderLayer(nn.Module):
             nhead,
             dropout=dropout,
             bias=bias,
+            force_split_qkv=force_split_qkv,
             **factory_kwargs,
         )
 

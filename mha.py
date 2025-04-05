@@ -48,12 +48,13 @@ class MultiHeadAttention(nn.Module):
         bias=True,
         device=None,
         dtype=None,
+        force_split_qkv: bool=False
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.nheads = nheads
         self.dropout = dropout
-        self._qkv_same_embed_dim = E_q == E_k and E_q == E_v
+        self._qkv_same_embed_dim = (E_q == E_k and E_q == E_v) and not force_split_qkv
         if self._qkv_same_embed_dim:
             self.packed_proj = nn.Linear(E_q, E_total * 3, bias=bias, **factory_kwargs)
         else:
