@@ -99,9 +99,13 @@ class Transformer(nn.Module):
         activation: nn.Module = torch.nn.functional.relu,
         layer_norm_eps=1e-5,
         norm_first=True,
+        batch_first=True,
         bias=True,
         device="cpu",
     ):
+        if not batch_first:
+            raise NotImplementedError('must be batch first')
+        super().__init__()
         encoder_layer = TransformerEncoderLayer(
             d_model,
             nhead,
